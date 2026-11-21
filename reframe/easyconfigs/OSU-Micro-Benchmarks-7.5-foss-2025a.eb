@@ -1,0 +1,30 @@
+easyblock = 'ConfigureMake'
+
+name = 'OSU-Micro-Benchmarks'
+version = '7.5'
+versionsuffix = '-project'
+
+homepage = 'https://mvapich.cse.ohio-state.edu/benchmarks/'
+description = 'OSU MPI Micro-Benchmarks for performance measurements'
+
+toolchain = {'name': 'foss', 'version': '2025a'}
+toolchainopts = {'usempi': True}
+
+source_urls = [
+    'https://mvapich.cse.ohio-state.edu/download/mvapich/'
+]
+sources = ['osu-micro-benchmarks-%(version)s.tar.gz']
+
+checksums = [
+    '1cf84ac5419456202757a757c5f9a4f5c6ecd05c65783c7976421cfd6020b3b3'
+]
+
+sanity_check_paths = {
+    'files': [
+        'libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency',
+        'libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw',
+    ],
+    'dirs': [],
+}
+
+moduleclass = 'perf'
