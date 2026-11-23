@@ -8,12 +8,17 @@ The **Existing Module**, **Generic Compilation**, and **EasyBuild Compilation** 
 
 ```text
 hpc-se-project/
-├── README.md
 └── reframe/
+    ├── README.md               # ReFrame test documentation
     ├── config/
     │   ├── aion.py              # ReFrame configuration for Aion
     │   └── iris.py              # ReFrame configuration for Iris
-    ├── easyconfigs/             # Project-local EasyConfig for OMB 7.5 with foss/2025a
+    ├── easyconfigs/
+    │   └── OSU-Micro-Benchmarks-7.5-foss-2025a-project.eb
+    │                           # Build OMB 7.5 with foss/2025a; use the -project version suffix
+    ├── images/
+    │   ├── aion_full_topology.svg # Aion CPU topology
+    │   └── iris_full_topology.svg # Iris CPU topology
     ├── scripts/
     │   └── prepare_omb.py       # Download, verify, cache, and extract OMB sources
     ├── src/                     # OSU source archive cache for generic compile (created automatically)
@@ -143,6 +148,20 @@ After each run, ReFrame checks the exit code, successful binding checks, expecte
 same-node or cross-node rank placement, and the benchmark result row. It then
 compares the extracted metric against the reference for the cluster and
 placement, accepting values within ±30% of that reference.
+
+## CPU Topology
+
+The following diagrams show the CPU topology of Aion and Iris for reference
+when interpreting the MPI process placements below. Open a diagram to view
+its details at full size.
+
+### Aion
+
+[![Aion CPU topology](images/aion_full_topology.svg)](images/aion_full_topology.svg)
+
+### Iris
+
+[![Iris CPU topology](images/iris_full_topology.svg)](images/iris_full_topology.svg)
 
 ## Benchmark Coverage
 

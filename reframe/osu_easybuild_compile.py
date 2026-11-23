@@ -13,6 +13,7 @@ import shlex
 
 import reframe as rfm
 import reframe.utility.sanity as sn
+import reframe.utility.udeps as udeps
 from reframe.core.builtins import (
     parameter,
     performance_function,
@@ -24,7 +25,6 @@ from reframe.core.builtins import (
 ROOT = Path(__file__).resolve().parent
 EASYCONFIG = "OSU-Micro-Benchmarks-7.5-foss-2025a-project.eb"
 OMB_INSTALL_VERSION = "7.5-foss-2025a-project"
-MODULES = ["env/testing/2025a", "toolchain/foss/2025a"]
 
 PERFORMANCE_REFERENCES = {
     "aion": {
@@ -57,10 +57,9 @@ IRIS_PLACEMENTS = {
 class OMBEasyBuildBuild(rfm.CompileOnlyRegressionTest):
     descr = "Build OMB 7.5 using a custom foss/2025a EasyConfig"
     valid_systems = ["aion:batch", 'iris:batch']
-    valid_prog_environs = ["builtin"]
-    modules = ["env/testing/2025a", "tools/EasyBuild"]
-    # Copy the custom EasyConfig into the ReFrame build stage.
-    sourcesdir = str(ROOT / "easyconfigs")
+    valid_prog_environs = ["testing-easybuild"]
+    # Refer to the shared-project EasyConfig (tested Aion/Iris approach).
+    sourcesdir = None
     sourcepath = ""
     build_system = "CustomBuild"
 
@@ -68,11 +67,11 @@ class OMBEasyBuildBuild(rfm.CompileOnlyRegressionTest):
     def configure_build(self):
         # EasyBuild downloads the OMB source when necessary. Keep all outputs
         # in the ReFrame stage directory; never install into central modules.
-        config = shlex.quote(EASYCONFIG)
+        config = shlex.quote(str(ROOT / "easyconfigs" / EASYCONFIG))
         install = f"eb/software/OSU-Micro-Benchmarks/{OMB_INSTALL_VERSION}"
         binary_dir = f"{install}/libexec/osu-micro-benchmarks/mpi/pt2pt"
         self.build_system.commands = [
-            f'test -f {config} || {{ echo "Custom EasyConfig not staged" >&2; exit 1; }}',
+            f'test -f {config} || {{ echo "Custom EasyConfig not found" >&2; exit 1; }}',
             'command -v eb >/dev/null || { echo "Load tools/EasyBuild before running eb" >&2; exit 1; }',
             f"eb {config} --robot --rebuild "
             '--installpath="${PWD}/eb" '
@@ -87,8 +86,7 @@ class OMBEasyBuildBuild(rfm.CompileOnlyRegressionTest):
 class _OMBEasyBuildRun(rfm.RunOnlyRegressionTest):
     placement = parameter(list(AION_PLACEMENTS))
     valid_systems = ["aion:batch", "iris:batch"]
-    valid_prog_environs = ["builtin"]
-    modules = MODULES
+    valid_prog_environs = ["testing-foss"]
     executable = "/bin/true"
     num_tasks = 2
     exclusive_access = True
@@ -96,7 +94,7 @@ class _OMBEasyBuildRun(rfm.RunOnlyRegressionTest):
 
     @run_after("init")
     def add_build_dependency(self):
-        self.depends_on("OMBEasyBuildBuild")
+        self.depends_on("OMBEasyBuildBuild", how=udeps.by_part)
 
     @run_before("setup")
     def configure_allocation(self):
@@ -113,7 +111,7 @@ class _OMBEasyBuildRun(rfm.RunOnlyRegressionTest):
     @run_before("run")
     def configure_runtime(self):
         cluster = self.current_system.name
-        build = self.getdep("OMBEasyBuildBuild")
+        build = self.getdep("OMBEasyBuildBuild", environ="testing-easybuild")
         self.executable = os.path.join(
             build.stagedir,
             "eb",
@@ -126,9 +124,6 @@ class _OMBEasyBuildRun(rfm.RunOnlyRegressionTest):
             "pt2pt",
             self.omb_binary,
         )
-        if cluster == "iris":
-            self.env_vars["PMIX_MCA_gds"] = "hash"
-
         inter = self.placement == "inter_node"
         if inter:
             self.job.options += ["--nodes=2"]
@@ -168,22 +163,18 @@ printf 'BIND_OK rank=%s host=%s cpu=%s socket=%s numa=%s\n' \
             "NUMA1": numa1,
         }.items():
             checker = checker.replace(key, str(value))
-            launcher = self.job.launcher.run_command(self.job)
-            self.prerun_cmds = [f"{launcher} bash -c {shlex.quote(checker)} || exit 1"]
 
-            metric = "latency" if self.omb_binary == "osu_latency" else "bandwidth"
-            unit = "us" if metric == "latency" else "MB/s"
-            reference = PERFORMANCE_REFERENCES[cluster][self.placement][metric]
-            self.reference = {
-                f"{cluster}:batch": {
-                    metric: (
-                        reference,
-                        -PERFORMANCE_TOLERANCE,
-                        PERFORMANCE_TOLERANCE,
-                        unit,
-                    )
-                }
+        launcher = self.job.launcher.run_command(self.job)
+        self.prerun_cmds = [f"{launcher} bash -c {shlex.quote(checker)} || exit 1"]
+
+        metric = "latency" if self.omb_binary == "osu_latency" else "bandwidth"
+        unit = "us" if metric == "latency" else "MB/s"
+        reference = PERFORMANCE_REFERENCES[cluster][self.placement][metric]
+        self.reference = {
+            f"{cluster}:batch": {
+                metric: (reference, -PERFORMANCE_TOLERANCE, PERFORMANCE_TOLERANCE, unit)
             }
+        }
 
     @sanity_function
     def validate(self):

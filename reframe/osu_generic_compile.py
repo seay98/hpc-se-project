@@ -46,7 +46,6 @@ IRIS_PLACEMENTS = {
     "inter_node": ((0, 0, 0), (0, 0, 0)),
 }
 
-TOOLCHAIN_MODULES = ["env/testing/2025a", "toolchain/foss/2025a"]
 SOURCE_SUBDIR = "osu-micro-benchmarks-7.5"
 PROJECT_DIR = Path(__file__).resolve().parent
 SOURCE_CACHE = PROJECT_DIR / "src" / (SOURCE_SUBDIR + ".tar.gz")
@@ -59,8 +58,7 @@ class OMBGenericBuild(rfm.CompileOnlyRegressionTest):
 
     descr = "Build OMB 7.5 from source with foss/2025a"
     valid_systems = ["aion:batch", "iris:batch"]
-    valid_prog_environs = ["builtin"]
-    modules = TOOLCHAIN_MODULES
+    valid_prog_environs = ["testing-foss"]
 
     # No source tree is copied: prepare_omb.py populates a fresh stage dir.
     sourcesdir = None
@@ -76,12 +74,6 @@ class OMBGenericBuild(rfm.CompileOnlyRegressionTest):
         ]
         directory = shlex.quote(SOURCE_SUBDIR)
         self.build_system.commands = [
-            f"cd {directory} && ./configure CC=mpicc CXX=mpicxx",
-            f"make -C {directory} -j 8",
-            f"test -x {directory}/mpi/pt2pt/osu_latency",
-            f"test -x {directory}/mpi/pt2pt/osu_bw",
-        ]
-        self.build_system.commands = [
             f"(cd {directory} && ./configure "
             "CC=mpicc CXX=mpicxx "
             '--prefix="$(pwd)/../osu")',
@@ -93,8 +85,7 @@ class OMBGenericBuild(rfm.CompileOnlyRegressionTest):
 class _OMBGenericRun(rfm.RunOnlyRegressionTest):
     placement = parameter(list(AION_PLACEMENTS))
     valid_systems = ["aion:batch", "iris:batch"]
-    valid_prog_environs = ["builtin"]
-    modules = TOOLCHAIN_MODULES
+    valid_prog_environs = ["testing-foss"]
 
     executable = "/bin/true"  # Replaced with the compiled binary in run hook.
     num_tasks = 2
@@ -133,10 +124,6 @@ class _OMBGenericRun(rfm.RunOnlyRegressionTest):
             "pt2pt",
             self.omb_binary,
         )
-
-        if cluster == "iris":
-            # Verified workaround for Iris PMIx gds/shmem2 initialization crash.
-            self.env_vars["PMIX_MCA_gds"] = "hash"
 
         is_inter_node = self.placement == "inter_node"
         if is_inter_node:

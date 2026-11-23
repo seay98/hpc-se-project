@@ -1,8 +1,8 @@
 """Iris/Aion OSU Micro-Benchmarks 7.5: existing-module regression tests.
 
 Aion: 8 tests; Iris: 6 applicable tests (cross_numa is skipped).
-Run: reframe -C aion.py --system aion:batch -c osu_existing_module.py -r
-     reframe -C iris.py --system iris:batch -c osu_existing_module.py -r
+Run: reframe -C config/aion.py --system aion:batch -c osu_existing_module.py -r
+     reframe -C config/iris.py --system iris:batch -c osu_existing_module.py -r
 """
 
 import shlex
@@ -59,11 +59,9 @@ class _OMBExistingModule(rfm.RunOnlyRegressionTest):
     placement = parameter(list(AION_PLACEMENTS))
 
     valid_systems = ["aion:batch", "iris:batch"]
-    valid_prog_environs = ["builtin"]
-    modules = [
-        "env/testing/2025a",
-        "perf/OSU-Micro-Benchmarks/7.5-gompi-2025a",
-    ]
+    valid_prog_environs = ["testing-foss"]
+    # Only the OMB module is test-specific; foss is provided by the environment.
+    modules = ["perf/OSU-Micro-Benchmarks/7.5-gompi-2025a"]
 
     num_tasks = 2
     exclusive_access = True
@@ -83,11 +81,6 @@ class _OMBExistingModule(rfm.RunOnlyRegressionTest):
         self.num_cpus_per_task = (
             cores_per_node if is_inter_node else cores_per_node // 2
         )
-
-    @run_before("run")
-    def configure_pmix(self):
-        if self.current_system.name == "iris":
-            self.env_vars["PMIX_MCA_gds"] = "hash"
 
     @run_before("run")
     def configure_binding(self):
